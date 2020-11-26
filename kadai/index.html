@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>myMemoPad</title>
+<script src="js/jquery-2.1.3.min.js"></script>
+<link rel="stylesheet" href="css/sample.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+<script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+<script> myIcon = L.icon({
+    iconUrl: 'kuma.png',
+    iconSize: [38, 95],
+    iconAnchor: [22, 94],
+    popupAnchor: [-3, -76],
+    shadowUrl: 'kuma.png',
+    shadowSize: [68, 95],
+    shadowAnchor: [22, 94]
+});
+L.marker([43.071807,141.360427], {icon: myIcon}).addTo(map);
+</script>
+
+</head>
+
+<body>
+<header>
+<h1>kumaP</h1>
+<div id="bkye">
+
+</div>
+<textarea id="memo"></textarea>
+<input type="text" id="key">
+
+<ul>
+    <li id="save">役場へ通報</li>
+    <li id="clear">よく見ると大きなイヌだった</li>
+</ul>
+
+</header>
+<div class="container">
+        <div id=mapid >main</div>
+        <div class="side">本日の熊情報<button 
+            type="button"
+            onclick="alert('何も起きなかった！')">
+            役所通報ボタン
+          </button><table id="list"></table></div>
+            <!-- ここに追加データが挿入される -->
+</div>
+
+
+<script>
+
+
+//1.Save クリックイベント
+$("#save").on("click",function(){
+    const key = $("#key").val();
+    const value = $("#memo").val();
+    localStorage.setItem(key, value);
+    const html = '<tr><th>'+key+'</th>><td>'+value+'</td></tr>';
+    $("#list").append(html);
+    // alert("ok");
+
+
+});
+
+
+//2.clear クリックイベント
+$("#clear").on("click",function(){
+    localStorage.clear();
+    $("#list").empty();
+    
+});
+
+
+
+
+
+//3.ページ読み込み：保存データ取得表示
+for(let i=0; i<localStorage.length; i++){
+    //変数key二タイトル名を代入
+    const key =localStorage.key(i);
+    //変数VAlにメモ内容を代入
+    const value =localStorage.getItem(key);
+    const html = '<tr><th>'+key+'</th>><td>'+value+'</td></tr>';
+    $("#list").append(html);
+    
+}
+
+//map
+var map =L.map("mapid").setView([43.071807,141.360427],15)
+L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
+    attribution:"<a href='https://maps.gsi.go.jp/development/ichiran.html' target='_blank'>地理院タイル</a>"
+    }).addTo(map);
+
+
+var option = {
+    position:'topright',
+    text:'検索',
+    placeholder:'住所を入れてください'
+
+}
+
+var sampleIcon= L.icon({
+    iconUrl:'kuma.png',
+    iconSize:[25,25],
+    iconAnchor:[12,25],
+    popupAnchor:[0,-25],
+});
+var geocoder = L.Control.geocoder({
+  defaultMarkGeocode: false
+})
+  .on('markgeocode', function(e) {
+    var bbox = e.geocode.bbox;
+    var poly = L.polygon([
+      bbox.getSouthEast(),
+      bbox.getNorthEast(),
+      bbox.getNorthWest(),
+      bbox.getSouthWest()
+    ]).addTo(map);
+    map.fitBounds(poly.getBounds());
+  })
+  .addTo(map);
+
+// var sampleIcon= L.icon({
+//     iconUrl:'kuma.png',
+//     iconSize:[25,25],
+//     iconAnchor:[12,25],
+//     popupAnchor:[0,-25],
+// });
+
+//地図のclickイベントでonMapClick関数を呼び出し
+map.on('click', onMapClick);
+//クリックイベント
+map.on('click', function(e) {
+    //クリック位置経緯度取得
+    lat = e.latlng.lat;
+    lng = e.latlng.lng;
+    //経緯度表示
+    $("#memo").val("北緯: " +lat + ", 東経: " + lng);
+    var url = "https://aginfo.cgk.affrc.go.jp/ws/rgeocode.php?json&"
+            + "lat=" + lat
+            + "&lon=" + lng;
+    //リバースジオコーディングで住所表示
+    console.log(url);
+    fetch(url)
+        .then(function(response) {
+            return response.json();
+    })
+    .then(function(address) {
+        var address = " ："
+                        + address.result.prefecture.pname
+                        + address.result.municipality.mname
+                        + address.result.local[0].section;
+    $("#key").val("目撃情報"+address);
+    });
+
+} )
+
+function onMapClick(e) {
+    //地図のclickイベント呼び出される
+    //クリック地点の座標にマーカーを追加、マーカーのclickイベントでonMarkerClick関数を呼び出し
+    var mk = L.marker(e.latlng).on('click', onMarkerClick).addTo(map);
+    
+}
+function onMarkerClick(e) {
+    //マーカーのclickイベント呼び出される
+    //クリックされたマーカーを地図のレイヤから削除する
+    map.removeLayer(e.target);
+
+}
+//アイコン変更
+var airfieldIcon = L.icon({
+        iconUrl: 'kuma.png',
+        iconSize: [48,48]
+});
+
+var airfield = L.geoJson (airfield, {
+    pointToLayer: function(feature,latlng){
+        return L.marker(latlng, {
+            icon: airfieldIcon
+        })
+    }
+}).addTo(map);
+</script>
+<footer class="footer">
+    <small>一般社団法人　クマ鍋保存会</small>
+    <img class="kmnb" src="kmnb.jpg">
+</footer>
+</body>
+</html>
+
+
